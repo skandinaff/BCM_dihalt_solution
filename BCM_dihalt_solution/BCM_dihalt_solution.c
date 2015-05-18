@@ -9,6 +9,7 @@
 //#include <avr/wdt.h>
 #include <util/delay.h>
 //#include <stdlib.h>
+#include <math.h>
 
 
 #define ROL(x) ((x << 1) | (x >> 7))
@@ -117,18 +118,36 @@ void DimFew(byte LEDS, int delay, byte topVal, boolean  dir)
 
 void DimOne(byte LED, int delay, byte topVal, boolean  dir) // Delay works best in range of 10 - 600
 {
-	TCCR1B |= (1<<WGM12)|(0<<CS12)|(1<<CS11)|(1<<CS10);
-	OCR1A = delay;
-	 
+
+	 OCR1A = delay;
+	//int x[] = {1,2,3,4,50,60,90,255};//{1,23,48,78,109,141,193,255}; 
+	// y = 4.646464646 * 10^-1 x3 - 3.260822511 x2 + 31.79834055 x - 29.21428571
+	
+	 float y;
 		if (dir == 1)
 		{
 			TCNT1 = 0;
 			for(int i=0; i<topVal; i++) // Rolling Brightness!
-			{				
+			{	
+				y = 0.4646464646 * pow(i,3) - 3.260822511 * pow(i,2) + 31.79834055 * i - 29.21428571;
+				//y=pow(i,2);	
 				while(!(TIFR & (1 << OCF1A))) if(OCR2==64)  SetOne(LED,i);		
 				TIFR |= (1 << OCF1A);
 			}		
 		}
+		
+		//int x[] = {1,2,3,4,50,60,90,255};//{1,23,48,78,109,141,193,255};
+		//
+		//if(dir==1){
+			//TCNT1=0;
+			//int i=0;
+			//while(i<length(x)){
+				//while(!(TIFR & (1 << OCF1A))) if(OCR2==64)  SetOne(LED,x[i]);
+				//TIFR |= (1 << OCF1A);
+				//i++;				
+			//}
+		//}
+		
 		else
 		{
 			SetOne(LED,topVal);
@@ -143,24 +162,40 @@ void DimOne(byte LED, int delay, byte topVal, boolean  dir) // Delay works best 
 		}
 }
 
+void init_timer_BCM()
+{
+	sei(); // Allow interrupts. Yeah, because why not, interrupt me, interrupt me everybody!!!1
 
+	TCNT2 = 0;  //Timer 2 initial value
+	OCR2 = 0b10000000; // Starting upper limit of timer 2
+
+	TIMSK |= 1<<OCF2; // Timer 2
+	TCCR2 |= 1<<WGM21 | 1<<CS22 | 1<<CS21;// | 1<< CS20; // Setting Timer 2 to CTC mode, and to prescaler of 256
+}
+
+void init_timer_DIM()
+{
+	TCCR1B |= (1<<WGM12)|(0<<CS12)|(1<<CS11)|(1<<CS10); // initializing timer 1, that is to contol dimming timing
+	
+}
 
 
 void main(void)
 {
 	volatile unsigned char a = 1;
 
-	sei(); // Allow interrupts. Yeah, because why not, interrupt me, interrupt me everybody!!!1
+	init_timer_BCM();
+	init_timer_DIM();
 
-	TCNT2 = 0;  //Timer 2 initial value
-	OCR2 = 0b00000001; // Ehm, that thing, which is comaprd to. Something, something..
-
-	TIMSK |= 1<<OCF2; // Timer 2 
-	TCCR2 |= 1<<WGM21 | 1<<CS22 | 1<<CS21;// | 1<< CS20; // Setting Timer 2 to CTC mode, and to prescaler of 256
-
-	PORTD = 0x00; // initalizig our port
-	DDRD = 0xFF; // Setting directions as outputs
+	DDRD = 0xFF;  //
+	PORTD = 0x00; // Row Port 
 	
+	// C&B both form column port
+	DDRC = 0b3F;
+	PORTC = 0xC0;
+
+	DDRB |= (1<<PB3)|(1<<PB2);	
+	PORTB &= ~(1<<PB3)|(1<<PB2);
 
 
 
@@ -172,10 +207,12 @@ void main(void)
 		a=ROL(a);
 		
 
-		DimFew(a,3000,250,1);
-		_delay_ms(500);
-		DimFew(a,3000,250,0);
-		_delay_ms(500);
+		DimFew(a,700,250,1);
+		//DimOne(0,3000,250,1);
+		_delay_ms(25);
+		DimFew(a,700,250,0);
+		//DimOne(0,3000,250,0);
+		_delay_ms(25);
 
 		//DimFew(a,600,50,1);
 		//
