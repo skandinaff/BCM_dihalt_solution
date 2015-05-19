@@ -31,6 +31,8 @@ unsigned char BRG[8] = {15,255,255,0,0,255,255,0};
 	
 unsigned char BRG0[8] = {0,0,0,0,0,0,0,0};
 	
+byte _COL;
+	
 	
 unsigned char BRIGHNESS_ARR[8][8]={
 	{1,1,1,1,1,1,1,1},
@@ -48,8 +50,10 @@ unsigned char BRG2[8] = {1,1,1,1,1,1,1,1};
 
 ISR(TIMER2_COMP_vect)
 {
-	OCR2 = ROR(OCR2); // That thing, where we  moving 1bit in OCR with each clock cycle
-
+	OCR2 = ROL(OCR2); // That thing, where we  moving 1bit in OCR with each clock cycle
+	PORTC=0xff;
+	PORTB=0xff;
+	
 	//COPYBIT(PORTD,0,BRG0[0]);
 	//COPYBIT(PORTD,1,BRG0[1]);
 	//COPYBIT(PORTD,2,BRG0[2]);
@@ -62,6 +66,12 @@ ISR(TIMER2_COMP_vect)
 	for(int i = 0; i<8; i++)
 	{
 		COPYBIT(PORTD,i,BRG0[i]);
+		
+			if(_COL>5) PORTB &= ~(1<<(_COL-5));
+			if(_COL<=5) PORTC &= ~(1<<(_COL));
+		
+
+
 	}
 
 
@@ -70,6 +80,28 @@ ISR(TIMER2_COMP_vect)
 
 
 void SetOne(byte LED, byte VAL) { BRG0[LED]=VAL; }
+	
+void SetOneDot(byte ROW, byte COL, byte VAL)
+{
+	_COL=COL;
+	BRG0[ROW]=VAL;
+}
+
+void DimOneDot(byte ROW, byte COL, int delay, byte VAL)
+{
+	OCR1A = delay;
+	
+		int topVal=255;
+		
+		TCNT1 = 0;
+		for(int i=0; i<topVal; i++) // Rolling Brightness!
+		{
+			_COL = COL;
+			while(!(TIFR & (1 << OCF1A))) if(OCR2==64)  SetOne(ROW,i);
+			TIFR |= (1 << OCF1A);
+		}
+
+}
 	
 void SetFew(byte LEDS, byte VAL) 
 {
@@ -191,26 +223,59 @@ void main(void)
 	PORTD = 0x00; // Row Port 
 	
 	// C&B both form column port
-	DDRC = 0b3F;
-	PORTC = 0xC0;
+	DDRC = 0x3F;   // 0b00111111
+	PORTC = ~0xC0;  // 0b11000000
 
-	DDRB |= (1<<PB3)|(1<<PB2);	
-	PORTB &= ~(1<<PB3)|(1<<PB2);
+	DDRB |= (1<<PB1)|(1<<PB2);	
+	PORTB |= (1<<PB1)|(1<<PB2);
 
 
 
 	while(1)
 	{
 	
-
+		DimOneDot(1,1,250,128);
+		_delay_ms(2000);
 		
-		a=ROL(a);
-		
+//		a=ROL(a);
+		byte flip = 0;
+		for (int i = 0; i<=8; i++)
+		{
+			
+			for (int j = 0; j<=8; j++)
+			{
+				if(flip==0){
+				SetOneDot(j-1, i-1, 0);
+				SetOneDot(j, i, 128);
+				_delay_ms(75);}
+				if(flip==1){
+									SetOneDot(i-1, j-1, 0);
+									SetOneDot(i, j, 128);
+									_delay_ms(75);
+				}
+			}
+			
+			flip=!flip;
 
-		DimFew(a,700,250,1);
+
+	}	
+		//for (int i = 0; i<=8; i++)
+	//{
+		//
+		//
+		//
+		//SetOneDot(i-1, 7, 0);
+		//SetOneDot(i, 7, 128);
+		//_delay_ms(50);
+//
+	//}		
+
+		//SetOneDot(0,6,64);
+
+		//DimFew(0x55,700,250,1);
 		//DimOne(0,3000,250,1);
 		_delay_ms(25);
-		DimFew(a,700,250,0);
+		//DimFew(0x55,700,250,0);
 		//DimOne(0,3000,250,0);
 		_delay_ms(25);
 
