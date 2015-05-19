@@ -1,5 +1,5 @@
 //Clock Config
-#define F_CPU 16000000L
+#define F_CPU 8000000
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -69,10 +69,15 @@ ISR(TIMER2_COMP_vect)
 	{
 		COPYBIT(PORTD,i,BRG0[i]);
 		
-		//PORTC = _COL_buffer;
-		//PORTB = _COL_buffer;
-		if(_COL>5) PORTB &= ~(1<<(_COL-5));
-		if(_COL<=5) PORTC &= ~(1<<(_COL));
+
+		
+		//PORTB = (_COL_buffer & 0b00111111);
+		//PORTB = (_COL_buffer & ~0b11000000  );
+		
+		PORTB &= ~(1<<_COL);
+		
+		//if(_COL>5) PORTB &= ~(1<<(_COL-5));
+		//if(_COL<=5) PORTC &= ~(1<<(_COL));
 
 
 	}
@@ -83,8 +88,8 @@ ISR(TIMER2_COMP_vect)
 
 void ManipulateColumns()
 {
-	if(_COL>5) _COL_buffer &= ~(1<<(_COL-5));
-	if(_COL<=5) _COL_buffer &= ~(1<<(_COL));
+			//if(_COL>5) _COL_buffer &= ~(1<<(_COL-5));
+			//if(_COL<=5) _COL_buffer &= ~(1<<(_COL));
 }
 
 void SetOne(byte LED, byte VAL) { BRG0[LED]=VAL; }
@@ -99,6 +104,8 @@ void SetOneDot(byte ROW, byte COL, byte VAL)
 
 void DimOneDot(byte ROW, byte COL, int delay, byte VAL)
 {
+	ManipulateColumns();
+	
 	OCR1A = delay;
 	
 	int topVal=255;
@@ -129,15 +136,16 @@ void SetAll(byte VAL)
 	}
 	if(VAL == 0)
 	{
-		PORTC |= (1<<PC0)|(1<<PC1)|(1<<PC2)|(1<<PC3)|(1<<PC4)|(1<<PC5); //~0xC0;				// 0b00111111
-		PORTB |= (1<<PB1)|(1<<PB2);
+		PORTB |= 0xff;
+		//PORTC |= (1<<PC0)|(1<<PC1)|(1<<PC2)|(1<<PC3)|(1<<PC4)|(1<<PC5); //~0xC0;				// 0b00111111
+		//PORTB |= (1<<PB1)|(1<<PB2);
 	}
 }
 
 
 void DimFew(byte LEDS, int delay, byte topVal, boolean  dir)
 {
-	TCCR1B |= (1<<WGM12)|(0<<CS12)|(1<<CS11)|(1<<CS10);
+
 	OCR1A = delay;
 	
 	if (dir == 1)
@@ -223,7 +231,7 @@ void init_timer_BCM()
 void init_timer_DIM()
 {
 	TCCR1B |= (1<<WGM12)|(0<<CS12)|(1<<CS11)|(1<<CS10); // initializing timer 1, that is to contol dimming timing
-	
+
 }
 
 
@@ -238,14 +246,17 @@ void main(void)
 	PORTD = 0x00; // Row Port
 	
 	// C&B both form column port
-	DDRC = 0x3F;
+	//DDRC = 0x3F;
+	//
+	//
+//
+	//DDRB |= (1<<PB1)|(1<<PB2);
+	//
+	//PORTC |= (1<<PC0)|(1<<PC1)|(1<<PC2)|(1<<PC3)|(1<<PC4)|(1<<PC5); //~0xC0;				// 0b00111111
+	//PORTB |= (1<<PB1)|(1<<PB2);										// 0b11000000
 	
-	
-
-	DDRB |= (1<<PB1)|(1<<PB2);
-	
-	PORTC |= (1<<PC0)|(1<<PC1)|(1<<PC2)|(1<<PC3)|(1<<PC4)|(1<<PC5); //~0xC0;				// 0b00111111
-	PORTB |= (1<<PB1)|(1<<PB2);										// 0b11000000
+	DDRB = 0xff;
+	PORTB = 0xFF;
 
 	SetAll(0);
 
@@ -259,13 +270,13 @@ void main(void)
 		SetAll(0);
 		
 		DimOneDot(1,1,250,255);
-		_delay_ms(200);
+		_delay_ms(300);
 		SetAll(0);
 		DimOneDot(3,3,250,128);
-		_delay_ms(200);
+		_delay_ms(300);
 		SetAll(0);
 		DimOneDot(4,7,250,128);
-		_delay_ms(2000);
+		_delay_ms(800);
 		SetAll(0);
 		
 		DimFew(0x55,700,250,1);
